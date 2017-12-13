@@ -1,0 +1,72 @@
+<dom-module id="log-terminal">
+  <template>
+    <style>
+      :host .terminal {
+        height: 400px;
+        overflow: auto;
+        background: #383838;
+        color: white;
+        padding: 10px;
+        box-shadow: inset 0px 0px 3px 4px #636363;
+        border: 2px solid #8cc3f3;
+        font-size: 12px;
+        font-family: monospace;
+      }
+
+      :host .terminal .c_blue {
+        color: #9193ff;
+      }
+
+      :host .terminal .c_red {
+        color: #ff6464;
+      }
+    </style>
+
+    <div class="terminal" id="terminal"></div>
+  </template>
+
+  <script type="text/javascript" src="/js/socket.io.js"></script>
+  <script type="text/javascript" src="/js/jquery-3.2.1.min.js"></script>
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+    class LogTerminal extends Polymer.Element {
+      static get is() { return 'log-terminal'; }
+
+      static get properties() {
+        return {
+          'socket-endpoint': String
+        };
+      }
+
+      ready() {
+        super.ready();
+        var terminal = $(this.$.terminal)
+
+        var socket = io(this.get('socket-endpoint'));
+
+        socket.on('connect', function() {
+          console.log('connected to websockets')
+        });
+
+        socket.on('init', function (data) {
+          terminal.html(data)
+          terminal.scrollTop(terminal[0].scrollHeight)
+        });
+
+        socket.on('terminal', (data) => {
+          var autoscroll =  terminal.innerHeight() + terminal.scrollTop() == terminal[0].scrollHeight
+          terminal.append(data)
+          if (autoscroll) {
+              terminal.scrollTop(terminal[0].scrollHeight - terminal.innerHeight())
+          }
+        });
+
+      }
+    }
+
+    customElements.define(LogTerminal.is, LogTerminal);
+  </script>
+</dom-module>

@@ -1,0 +1,6 @@
+{
+  "name": "XE-API status",
+  "short_name": "XE-API status",
+  "start_url": "/",
+  "display": "standalone"
+}

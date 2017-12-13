@@ -1,0 +1,285 @@
+<link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../../bower_components/paper-badge/paper-badge.html">
+<link rel="import" href="../../bower_components/paper-spinner/paper-spinner.html">
+
+<dom-module id="server-window">
+  <template>
+    <style is="custom-style">
+      :host {
+        display: block;
+        position: relative;
+      }
+
+      .toolbar {
+        padding: 5px;
+        background: var(--default-primary-color);
+        color: var(--text-primary-color);
+        @apply --paper-font-title;
+      }
+
+      .item {
+        position: relative;
+        padding: 8px;
+        margin-bottom: 20px;
+      }
+
+      .fab {
+        position: absolute;
+        box-sizing: border-box;
+        padding: 11px;
+        width: 56px;
+        height: 56px;
+        right: 16px;
+        top: -30px;
+        border-radius: 50%;
+        text-align: center;
+        border: 4px solid;
+        border-color: #ffffff;
+        border-top: 0;
+
+        background: var(--default-primary-color);
+        color: #063a35;
+        @apply --paper-font-headline;
+      }
+
+      .buttons {
+        display: flex;
+        margin-top: 20px;
+      }
+
+      paper-button {
+        font-family: 'Roboto', 'Noto', sans-serif;
+        font-weight: normal;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .message {
+        vertical-align: top;
+        white-space: normal !important;
+      }
+
+      .time {
+        font-size: 10px;
+        float: right;
+        margin-right: 5px;
+      }
+
+      .container {
+        display: flex;
+        flex-flow: row wrap;
+        @apply --paper-font-caption;
+      }
+
+      #staging {
+        margin-top: 20px;
+      }
+
+      .container > * {
+        flex: 1 100%;
+      }
+
+      paper-button.green {
+        background-color: var(--paper-green-500);
+        color: white;
+      }
+
+      paper-button.red {
+        background-color: var(--paper-red-500);
+        color: white;
+      }
+
+      .environment {
+        display: inline-block;
+        font-size: 15px;
+      }
+
+      /* Need to position the badge to look like a text superscript */
+      .environment > paper-badge {
+        --paper-badge-margin-left: 30px;
+        --paper-badge-margin-bottom: 0px;
+        --paper-badge-background: var(--paper-green-500);
+        --paper-badge-width: 30px;
+      }
+
+      paper-spinner, .loading_bg {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        margin: auto;
+      }
+
+      .loading_bg {
+        background: #fff;
+        z-index: 1;
+        /*opacity: 0;*/
+        transition: .3s;
+        opacity: .5;
+      }
+
+      paper-spinner {
+        z-index: 2;
+      }
+
+    </style>
+    <div>
+      <paper-spinner active="[[loading]]"></paper-spinner>
+      <template is="dom-if" if="[[loading]]">
+        <div class="loading_bg"></div>
+      </template>
+
+      <div class="toolbar">[[ip]]</div>
+      <div class="item"><div class="fab">[[server-id]]</div></div>
+      <div>
+        <div id="production" class="container">
+          <div>
+            <div class="environment">
+              <span>Production</span> <template is="dom-if" if="[[prod_new]]"> <paper-badge label="NEW"></paper-badge></template>
+            </div>
+            <span class="time">[[prod_time]]</span>
+          </div>
+          <p class="message"><a id="commit_hash" target="_blank" href$="[[prod_link]]">[[prod_hash]]</a>[[prod_message]]</p>
+        </div>
+        <hr>
+        <div id="staging" class="container">
+          <div>
+            <div class="environment">
+              <span>Staging</span> <template is="dom-if" if="[[staging_new]]"> <paper-badge label="NEW"></paper-badge></template>
+            </div>
+            <span class="time">[[staging_time]]</span>
+          </div>
+          <p class="message"><a id="commit_hash" target="_blank" href$="[[staging_link]]">[[staging_hash]]</a>[[staging_message]]</p>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <paper-button raised class="green" on-click="update">UPDATE</paper-button>
+        <paper-button raised class="red" on-click="swap">SWAP</paper-button>
+      </div>
+
+      <iron-ajax with-credentials
+        id="update-ajax"
+        url$="[[api-url]]/update/[[server-id]]"
+        handle-as="json"
+        on-response="handleUpdate"
+        on-error="handleError">
+      </iron-ajax>
+
+      <iron-ajax with-credentials
+        id="swap-ajax"
+        url$="[[api-url]]/swap/[[server-id]]"
+        handle-as="json"
+        on-response="handleSwap"
+        on-error="handleError">
+      </iron-ajax>
+
+      <iron-ajax with-credentials auto
+        id="get-info-ajax"
+        url$="[[api-url]]/getinfo/[[server-id]]"
+        handle-as="json"
+        on-response="handleGetInfo"
+        on-error="handleError">
+      </iron-ajax>
+    </div>
+  </template>
+
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+    class ServerWindow extends Polymer.Element {
+      static get is() { return 'server-window'; }
+
+      static get properties() {
+        return {
+          'server-id': Number,
+          'api-url': String,
+          'loading': {type: Boolean, value: true}
+        };
+      }
+
+      constructor() {
+        super();
+        this.ip = "Loading...";
+      }
+
+      handleGetInfo(event) {
+        this.loading = false;
+        console.log('handleGetInfo')
+
+        let gitHub = "https://github.com/ConnexionPoint/XE-API/commit/"
+        let response = event.detail.response
+
+        if (response.success) {
+          console.log(response.result)
+
+          let staging = response.result.staging
+          let production = response.result.production
+
+          this.prod_message = " - " + production.commit_message
+          this.prod_link = gitHub + production.commit_hash
+          this.prod_hash = production.commit_hash.substring(0, 8)
+          this.prod_time = production.commit_time
+          this.prod_time_unix = production.commit_time_unix
+
+          this.staging_message = " - " + staging.commit_message
+          this.staging_link = gitHub + staging.commit_hash
+          this.staging_hash = staging.commit_hash.substring(0, 8)
+          this.staging_time = staging.commit_time
+          this.staging_time_unix = staging.commit_time_unix
+
+          this.ip = response.result.ip
+
+          this.prod_new = this.prod_time_unix >= this.staging_time_unix
+          this.staging_new = this.prod_time_unix <= this.staging_time_unix
+
+        } else {
+          console.log("FAIL!")
+          console.log(response.result)
+        }
+      }
+
+      update() {
+        this.shadowRoot.getElementById('update-ajax').generateRequest();
+      }
+
+      handleUpdate(event) {
+        console.log('handleUpdate')
+
+        if(event.detail.response.success)
+          this.shadowRoot.getElementById('get-info-ajax').generateRequest();
+        else
+          console.log("Failed to update staging for Server #" + this.getAttribute("server-id"))
+      }
+
+      swap() {
+        this.shadowRoot.getElementById('swap-ajax').generateRequest();
+      }
+
+      handleSwap(event) {
+        console.log("handleSwap")
+
+        if(event.detail.response.success)
+          this.shadowRoot.getElementById('get-info-ajax').generateRequest();
+        else
+          console.log("Failed to swap staging and production for Server #" + this.getAttribute("server-id"))
+      }
+
+      handleError(e) {
+        let req = e.detail.request;
+        console.log('error', e.detail.error, req.status, req.statusText);
+        if (e.detail.error.message == "The request failed with status code: 403") {
+          // Redirect to login form
+          console.log('403')
+          // location.href = '//' + location.hostname + ':5000/login?return_url=' + location.href
+          location.href = this.get('api-url')+ '/login?return_url=' + location.href
+        }
+      }
+    }
+
+    customElements.define(ServerWindow.is, ServerWindow);
+  </script>
+</dom-module>

@@ -1,0 +1,172 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<!-- <link rel="import" href="../../bower_components/iron-icon/iron-icon.html"> -->
+<link rel="import" href="../../bower_components/iron-icons/av-icons.html">
+
+<link rel="import" href="../../src/server-window/server-window.html">
+<link rel="import" href="../../src/log-terminal/log-terminal.html">
+
+<dom-module id="main-app">
+  <template>
+    <style include="iron-flex iron-flex-alignment">
+      :host {
+        --default-primary-color: var(--paper-grey-200);
+        --text-primary-color: #063a35;
+      }
+
+      .toolbar {
+        margin-bottom: 20px;
+        text-align: center;
+        padding: 5px;
+        background: var(--default-primary-color);
+        color: var(--text-primary-color);
+        @apply --paper-font-headline;
+      }
+
+      .shadow {
+        padding: 15px;
+        margin: auto;
+        width: 100%;
+        min-width: 240px;
+        max-width: 27%;
+        min-height: 320px;
+        @apply --shadow-elevation-6dp;
+      }
+
+      .buttons li {
+        margin-bottom: 10px;
+      }
+
+      .buttons li paper-button {
+          min-width: 110px;
+      }
+
+      paper-button.green {
+        background-color: var(--paper-green-500);
+        color: white;
+      }
+
+      paper-button.red {
+        background-color: var(--paper-red-500);
+        color: white;
+      }
+
+      .buttons iron-icon {
+        transition: all 0.2s;
+        -webkit-transition: all 0.2s;
+        fill: var(--google-grey-300);
+        width: 15px;
+      }
+
+      iron-icon.green {
+        fill: var(--google-green-500);
+      }
+
+      iron-icon.red {
+        fill: var(--google-red-500);
+      }
+    </style>
+
+    <div class="toolbar">API Deployment</div>
+
+    <div class="layout horizontal">
+      <server-window api-url="[[API_URL]]" class="shadow" server-id=0></server-window>
+      <server-window api-url="[[API_URL]]" class="shadow" server-id=1></server-window>
+      <server-window api-url="[[API_URL]]" class="shadow" server-id=2></server-window>
+    </div>
+
+    <ol class="buttons">
+      <li>
+        <paper-button class="green" raised on-click="updateAll">UPDATE ALL</paper-button>
+        <iron-icon class="green" icon="av:fiber-manual-record"></iron-icon>
+      </li>
+      <li>
+        <paper-button class="green" raised on-click="testStaging">Test</paper-button>
+        <iron-icon class="red" icon="av:fiber-manual-record"></iron-icon>
+      </li>
+      <li>
+        <paper-button class="red" raised on-click="swapAll">SWAP ALL</paper-button>
+        <iron-icon icon="av:fiber-manual-record"></iron-icon>
+      </li>
+    </ol>
+
+
+    <paper-button raised on-click="testProd">Run test api.cxpxe.net</paper-button>
+
+    <div>
+      <log-terminal socket-endpoint="[[TERMINAL_SOCKET_URL]]"></log-terminal>
+    </div>
+
+    <!-- <iron-meta key="info" value="foo/bar"></iron-meta> -->
+
+    <iron-ajax with-credentials
+      id="test-prod-ajax"
+      url$="[[API_URL]]/test/production"
+      handle-as="json"
+      on-response="handleTest">
+    </iron-ajax>
+
+    <iron-ajax with-credentials
+      id="test-staging-ajax"
+      url$="[[API_URL]]/test/staging"
+      handle-as="json"
+      on-response="handleTest">
+    </iron-ajax>
+  </template>
+
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+
+    class MainApp extends Polymer.Element {
+      static get is() { return 'main-app'; }
+
+      constructor() {
+        super();
+        // Define endpoints
+        this.API_URL = '//' + location.hostname + ':5000'
+        this.TERMINAL_SOCKET_URL = 'ws://' + location.hostname + ':3000'
+      }
+
+      updateAll() {
+        console.log("updateAll")
+
+        let servers = this.shadowRoot.querySelectorAll('server-window')
+        for (var i = 0; i < servers.length; i++) {
+          servers[i].update()
+        }
+      }
+
+      swapAll() {
+        console.log("swapAll")
+
+        let servers = this.shadowRoot.querySelectorAll('server-window')
+        for (var i = 0; i < servers.length; i++) {
+          servers[i].swap()
+        }
+      }
+
+      testProd() {
+        this.shadowRoot.getElementById('test-prod-ajax').generateRequest();
+      }
+
+      testStaging() {
+        this.shadowRoot.getElementById('test-staging-ajax').generateRequest();
+      }
+
+      handleTest(event) {
+        console.log("handleTest")
+
+        if(event.detail.response.success)
+          console.log("Testing was successful!")
+        else
+          console.log("Testing was unsuccessful!")
+      }
+    }
+
+    window.customElements.define(MainApp.is, MainApp);
+  </script>
+</dom-module>

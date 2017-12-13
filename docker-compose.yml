@@ -1,0 +1,30 @@
+version: '3'
+services:
+  web:
+    build: web
+    ports:
+    - "80:80"
+    volumes:
+#    - ./web/src/build/default:/usr/share/nginx/html
+    - ./web/src:/usr/share/nginx/html
+  api:
+    build: api
+    ports:
+    - "5000:5000"
+    volumes:
+#    - ./api:/app
+    - ./api:/var/www/api-deploy
+    - ./tmp:/var/log/terminal
+    environment:
+      - FLASK_APP=app.py
+#      - FLASK_DEBUG=1
+  terminal:
+    build: terminal
+    ports:
+    - "3000:3000"
+    volumes:
+    - ./terminal:/var/www/terminal
+    - ./tmp:/var/log/terminal
+
+volumes:
+  logvolume01: {}
